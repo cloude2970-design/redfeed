@@ -34,33 +34,28 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleHlsError = (event, data) => {
-        if (data.fatal) {
-            switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                    hlsRef.current.startLoad();
-                    break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                    hlsRef.current.recoverMediaError();
-                    break;
-                default:
-                    hlsRef.current.destroy();
-                    break;
-            }
-        }
-    };
-
-    if (Hls.isSupported() && hlsUrl) {
-      if (hlsRef.current) hlsRef.current.destroy();
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, handleHlsError);
-      hlsRef.current = hls;
-    } else if (video.canPlayType('application/vnd.apple.mpegurl') && hlsUrl) {
-      video.src = hlsUrl;
-    } else {
+    // Use fallback MP4 URL directly - more reliable than HLS
+    // Reddit's CMAF MP4 includes audio and has proper CORS
+    if (fallbackUrl) {
       video.src = fallbackUrl;
+      console.log("Loading video:", fallbackUrl);
+    } else if (hlsUrl) {
+      // Fallback to HLS only if no MP4 available
+      if (Hls.isSupported()) {
+        if (hlsRef.current) hlsRef.current.destroy();
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            console.error("HLS fatal error:", data);
+            setHasError(true);
+          }
+        });
+        hlsRef.current = hls;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = hlsUrl;
+      }
     }
 
     return () => {
