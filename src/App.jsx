@@ -34,13 +34,22 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Use fallback MP4 URL directly - more reliable than HLS
-    // Reddit's CMAF MP4 includes audio and has proper CORS
-    if (fallbackUrl) {
+    // Detect iOS (Safari/Chrome on iOS use WebKit)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const canPlayHLSNatively = video.canPlayType('application/vnd.apple.mpegurl') !== '';
+    
+    console.log("Device:", { isIOS, canPlayHLSNatively, hlsUrl: !!hlsUrl, fallbackUrl: !!fallbackUrl });
+
+    if (isIOS && canPlayHLSNatively && hlsUrl) {
+      // iOS Safari has native HLS support - use it directly
+      video.src = hlsUrl;
+      console.log("iOS: Using native HLS:", hlsUrl);
+    } else if (fallbackUrl) {
+      // Desktop/Android: use MP4 fallback
       video.src = fallbackUrl;
-      console.log("Loading video:", fallbackUrl);
+      console.log("Using MP4 fallback:", fallbackUrl);
     } else if (hlsUrl) {
-      // Fallback to HLS only if no MP4 available
+      // No fallback, try HLS.js
       if (Hls.isSupported()) {
         if (hlsRef.current) hlsRef.current.destroy();
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
@@ -53,7 +62,7 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
           }
         });
         hlsRef.current = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      } else if (canPlayHLSNatively) {
         video.src = hlsUrl;
       }
     }
