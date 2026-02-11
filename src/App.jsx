@@ -184,14 +184,11 @@ function App() {
       }
 
       const endpoints = [
-          // AllOrigins returns JSON with { contents: "string" }
+          // Primary: Our own Cloudflare Worker (most reliable)
+          { url: `https://redfeed-proxy.cjb2970.workers.dev/?url=${encodeURIComponent(redditUrl)}`, type: 'direct', name: 'CF-Worker' },
+          // Fallbacks (public proxies, often blocked by Reddit)
           { url: `https://api.allorigins.win/get?url=${encodeURIComponent(redditUrl)}`, type: 'wrapper', name: 'AllOrigins' },
-          // AllOrigins raw endpoint
-          { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(redditUrl)}`, type: 'direct', name: 'AllOrigins-Raw' },
-          // Codetabs returns direct JSON
           { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(redditUrl)}`, type: 'direct', name: 'CodeTabs' },
-          // cors.sh free tier (may be rate limited)
-          { url: `https://proxy.cors.sh/${redditUrl}`, type: 'direct', name: 'CORS.sh' },
       ];
 
       let data = null;
@@ -295,8 +292,8 @@ function App() {
             const url = `https://www.reddit.com/api/search_reddit_names.json?query=${encodeURIComponent(value)}`;
             // Try multiple proxies for autocomplete
             const proxyEndpoints = [
+                { url: `https://redfeed-proxy.cjb2970.workers.dev/?url=${encodeURIComponent(url)}`, type: 'direct' },
                 { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'wrapper' },
-                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'direct' },
             ];
             
             let names = null;
