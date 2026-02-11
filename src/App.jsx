@@ -38,33 +38,35 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const canPlayHLSNatively = video.canPlayType('application/vnd.apple.mpegurl') !== '';
     
-    console.log("Device:", { isIOS, canPlayHLSNatively, hlsUrl: !!hlsUrl, fallbackUrl: !!fallbackUrl });
-
+    let targetSrc = null;
     if (isIOS && canPlayHLSNatively && hlsUrl) {
-      // iOS Safari has native HLS support - use it directly
-      video.src = hlsUrl;
-      console.log("iOS: Using native HLS:", hlsUrl);
+      targetSrc = hlsUrl;
     } else if (fallbackUrl) {
-      // Desktop/Android: use MP4 fallback
-      video.src = fallbackUrl;
-      console.log("Using MP4 fallback:", fallbackUrl);
-    } else if (hlsUrl) {
-      // No fallback, try HLS.js
-      if (Hls.isSupported()) {
-        if (hlsRef.current) hlsRef.current.destroy();
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-        hls.loadSource(hlsUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            console.error("HLS fatal error:", data);
-            setHasError(true);
-          }
-        });
-        hlsRef.current = hls;
-      } else if (canPlayHLSNatively) {
-        video.src = hlsUrl;
-      }
+      targetSrc = fallbackUrl;
+    } else if (hlsUrl && canPlayHLSNatively) {
+      targetSrc = hlsUrl;
+    }
+    
+    // Prevent reloading same source
+    if (targetSrc && video.src !== targetSrc) {
+      console.log("Setting video src:", targetSrc);
+      video.src = targetSrc;
+      video.load(); // Ensure video reloads
+    }
+    
+    // HLS.js fallback for non-native HLS support
+    if (!targetSrc && hlsUrl && Hls.isSupported()) {
+      if (hlsRef.current) hlsRef.current.destroy();
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          console.error("HLS fatal error:", data);
+          setHasError(true);
+        }
+      });
+      hlsRef.current = hls;
     }
 
     return () => {
@@ -84,8 +86,6 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
         playPromise
           .then(() => {
             setIsPlaying(true);
-            // Restore mute state after autoplay starts
-            video.muted = isMuted;
           })
           .catch((err) => {
             console.log("Autoplay blocked:", err);
@@ -96,7 +96,15 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
       video.pause();
       setIsPlaying(false);
     }
-  }, [isActive, isMuted]);
+  }, [isActive]); // Remove isMuted to prevent re-trigger
+  
+  // Handle mute state separately to avoid video reload
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.muted = isMuted;
+    }
+  }, [isMuted]);
 
   const togglePlay = () => {
     const video = videoRef.current;
