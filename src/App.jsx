@@ -68,15 +68,26 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
     if (!video) return;
 
     if (isActive) {
+      // Mobile browsers require muted for autoplay
+      video.muted = true;
       const playPromise = video.play();
       if (playPromise !== undefined) {
-        playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            // Restore mute state after autoplay starts
+            video.muted = isMuted;
+          })
+          .catch((err) => {
+            console.log("Autoplay blocked:", err);
+            setIsPlaying(false);
+          });
       }
     } else {
       video.pause();
       setIsPlaying(false);
     }
-  }, [isActive]);
+  }, [isActive, isMuted]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -104,14 +115,22 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
         className="video-player"
         loop
         muted={isMuted}
+        autoPlay={isActive}
         playsInline
-        crossOrigin="anonymous"
+        webkit-playsinline="true"
+        x5-playsinline="true"
+        x5-video-player-type="h5"
+        preload="metadata"
         poster={poster}
         onClick={togglePlay}
-        onError={() => setHasError(true)}
+        onError={(e) => {
+          console.error("Video error:", e.target.error);
+          setHasError(true);
+        }}
+        onLoadedData={() => console.log("Video loaded:", fallbackUrl)}
       />
       {!isPlaying && (
-        <div className="play-indicator">
+        <div className="play-indicator" onClick={togglePlay}>
           <Play fill="white" size={48} style={{ opacity: 0.8 }} />
         </div>
       )}
