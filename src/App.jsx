@@ -26,8 +26,8 @@ const VideoSlide = ({ post, isActive, isMuted, toggleMute }) => {
 
   const { title, author, subreddit_name_prefixed, ups, num_comments, permalink, media, preview } = post;
   
-  const hlsUrl = media?.reddit_video?.hls_url;
-  const fallbackUrl = media?.reddit_video?.fallback_url;
+  const hlsUrl = media?.reddit_video?.hls_url?.replace(/&amp;/g, '&');
+  const fallbackUrl = media?.reddit_video?.fallback_url?.replace(/&amp;/g, '&');
   const poster = preview?.images?.[0]?.source?.url?.replace(/&amp;/g, '&');
 
   useEffect(() => {
